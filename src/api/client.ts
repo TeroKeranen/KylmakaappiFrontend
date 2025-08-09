@@ -18,3 +18,4 @@ export async function apiPost(path: string, body: object) {
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     return res.json();
 }
+
