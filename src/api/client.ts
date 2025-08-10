@@ -1,14 +1,21 @@
-const BASE_URL = "http://192.168.0.23:3000";
+const BASE_URL = "https://kylmakaappibackend-d3fef21b1e11.herokuapp.com";
+
+// Yleinen GET-pyyntöfunktio
 
 export async function apiGet(path: string) {
+    // Haetaan dataa backendistä (HTTP GET)
     const res = await fetch(`${BASE_URL}${path}`);
 
+    // Jos vastauskoodi ei ole 200 OK → heitetään virhe
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     
     return res.json();
 }
 
+// Yleinen POST-pyyntöfunktio
 export async function apiPost(path: string, body: object) {
+
+    // Lähetetään POST backendille
     const res = await fetch(`${BASE_URL}${path}`, {
         method: "POST",
         headers: {"Content-type": "application/json"},
@@ -18,4 +25,11 @@ export async function apiPost(path: string, body: object) {
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     return res.json();
 }
+
+// UUSI: moottori 5s, suunta fwd|rev
+export async function motorRun(deviceId: string, ms = 5000, dir: "fwd" | "rev" = "fwd") {
+    return apiPost("/motor", { deviceId, ms, dir });
+  }
+  
+  export { BASE_URL };
 
