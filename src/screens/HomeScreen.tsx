@@ -83,12 +83,33 @@ export default function HomeScreen({ navigation }: Props) {
     };
   }, []);
 
-  async function waitDeviceOnline(deviceId: string, timeoutMs = 25000) {
+
+  function wifiFriendlyError(msg?: string) {
+    // kaikki tyypilliset WiFi-falit laukaisevat saman käyttäjäviestin
+    const m = (msg || "").toLowerCase();
+    if (
+      m.includes("wifi") ||
+      m.includes("auth") ||           // authentication failed
+      m.includes("password") ||
+      m.includes("pass") ||
+      m.includes("ssid") ||
+      m.includes("timeout")
+    ) {
+      return "Tarkista Wi-Fi SSID ja salasana.";
+    }
+    return null;
+  }
+
+  async function waitDeviceOnline(deviceId: string, timeoutMs = 25000, sinceMs?: number) {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
       try {
         const data = await apiGet(`/state/${deviceId}`);
-        if (data?.state?.online && data?.state?.ip) return data;
+        const seen = Number(data?.lastSeen ?? 0);
+        // hyväksy vain, jos online+ip JA lastSeen on uudempi kuin yrityksen aloitus
+        if (data?.state?.online && data?.state?.ip && (!sinceMs || seen > sinceMs)) {
+          return data;
+        }
       } catch {}
       await new Promise(r => setTimeout(r, 2000));
     }
@@ -141,34 +162,56 @@ export default function HomeScreen({ navigation }: Props) {
     }
   };
 
-  const provision = async () => {
-    try {
-      setProvBusy(true); setErr(""); setMsg("");
-      if (!deviceCode.trim()) {
-        setErr("Syötä laitteen koodi.");
-        return;
-      }
-      const res = await sendWifiCredentials(ssid.trim(), wpass, deviceCode.trim());
-
-      if (res.ok) {
-        setMsg(`Provision ok! IP: ${res.ip ?? '-'}`);
-        setProvAvailable(false); // piilota kortti, kun onnistui
-        return;
-      }
-
-      const confirm = await waitDeviceOnline(deviceId, 25000);
-      if (confirm) {
-        setMsg(`Provision ok! IP: ${confirm.state?.ip ?? '-'}`);
-        setProvAvailable(false);
-      } else {
-        setErr(`Provision epäonnistui: ${res.error ?? 'timeout'}`);
-      }
-    } catch (e: any) {
-      setErr(String(e?.message || e));
-    } finally {
-      setProvBusy(false);
+// korvaa koko provision-funktio tällä
+const provision = async () => {
+  try {
+    setProvBusy(true); setErr(""); setMsg("");
+    if (!deviceCode.trim()) {
+      setErr("Syötä laitteen koodi.");
+      return;
     }
-  };
+
+    const startedAt = Date.now();
+    const res = await sendWifiCredentials(ssid.trim(), wpass, deviceCode.trim());
+
+    if (!res.ok) {
+      // 1) jos ESP32 antoi virheen, näytä WiFi-ystävällinen viesti kun mahdollista
+      const friendly = wifiFriendlyError(res.error);
+      if (friendly) {
+        setErr(friendly);
+        return;
+      }
+
+      // 2) fallback vain BLE-notifyn timeouttiin: jos ei tule online tämän yrityksen jälkeen,
+      //    tulkitaan WiFi-epäonnistumiseksi -> sama ystävällinen viesti
+      if (res.error === "Provision notify timeout (20s)") {
+        const confirm = await waitDeviceOnline(deviceId, 25000, startedAt);
+        if (confirm) {
+          setMsg(`Provision ok! IP: ${confirm.state?.ip ?? "-"}`);
+          setProvAvailable(false);
+        } else {
+          setErr("Tarkista Wi-Fi SSID ja salasana.");
+        }
+      } else {
+        setErr(`Provision epäonnistui: ${res.error ?? "virhe"}`);
+      }
+      return;
+    }
+
+    // Onnistui selvästi BLE:n kautta
+    setMsg(`Provision ok! IP: ${res.ip ?? "-"}`);
+    setProvAvailable(false);
+
+  } catch (e: any) {
+    // Myös yleiset BLE-yhteysvirheet käännetään tarvittaessa WiFi-viestiksi
+    const friendly = wifiFriendlyError(String(e?.message || e));
+    setErr(friendly ?? String(e?.message || e));
+  } finally {
+    setProvBusy(false);
+  }
+};
+
+  
 
   if (loading) {
     return (
@@ -182,7 +225,7 @@ export default function HomeScreen({ navigation }: Props) {
   return (
     <ScrollView contentContainerStyle={styles.scroll}>
       <View style={styles.container}>
-        <Text style={styles.title}>Etusivu!</Text>
+        <Text style={styles.title}>Etusivu!!</Text>
 
         {err ? <Text style={styles.err}>{err}</Text> : null}
         {msg ? <Text style={styles.msg}>{msg}</Text> : null}
@@ -263,6 +306,7 @@ export default function HomeScreen({ navigation }: Props) {
             </>
           )}
         </View>
+        <Button title="Asiakassivu" onPress={() => navigation.navigate("Customer")} />
       </View>
     </ScrollView>
   );

@@ -73,6 +73,7 @@ export async function sendWifiCredentials(ssid: string, pass: string, deviceCode
   if (!ssid) throw new Error('SSID puuttuu');
   if (!deviceCode) throw new Error('Laitekoodi puuttuu');
 
+
   const device = await scanForProvisioningDevice(deviceCode);
   const d = await device.connect();
 
@@ -111,7 +112,7 @@ export async function sendWifiCredentials(ssid: string, pass: string, deviceCode
       }, 20000);
     });
 
-    const payload = b64FromJson({ ssid, pass });
+    const payload = b64FromJson({ ssid, pass, code: deviceCode });
     await d.writeCharacteristicWithResponseForService(SERVICE_UUID, RX_UUID, payload);
 
     return await resultPromise;
