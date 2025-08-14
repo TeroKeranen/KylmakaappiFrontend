@@ -19,7 +19,7 @@ async function resolveDeviceId(customerCode: string): Promise<string> {
 
   type Props = NativeStackScreenProps<RootStackParamList, 'Customer'>;
 
-export default function CustomerScreen({ navigation }: Props) {
+export default function CustomerScreen({ navigation, route }: Props) {
 
     const [customerCode, setCustomerCode] = useState("");
     const [deviceId, setDeviceId] = useState<string | null>(null);
@@ -34,30 +34,35 @@ export default function CustomerScreen({ navigation }: Props) {
 
     const esRef = useRef<EventSource | null>(null);
 
-    useEffect(() => {
+
+
+      useEffect(() => {
+        const code = route?.params?.code;
+        if (typeof code === "string" && code.trim()) {
+          setCustomerCode(code);
+          // pieni viive UI:lle (ei pakollinen)
+          setTimeout(() => connect(code), 0);
+        }
         return () => { esRef.current?.close(); };
-      }, []);
+      // HUOM: riippuvuutena vain route.params.code
+      }, [route?.params?.code]);
 
 
-      const connect = async () => {
+      const connect = async (initialCode?: string) => {
         try {
           setLoading(true); setErr(""); setMsg("");
-          if (!customerCode.trim()) { setErr("Syötä laitteen koodi tai skannaa QR."); return; }
+          const code = (initialCode ?? customerCode).trim();
+          if (!code) { setErr("Syötä laitteen koodi tai skannaa QR."); return; }
     
-          const id = await resolveDeviceId(customerCode.trim());
-
-          
+          const id = await resolveDeviceId(code);
           setDeviceId(id);
     
-          // hae tila
           const data = await apiGet(`/state/${id}`);
-          console.log("data",data);
           const ledState = data?.state?.led;
           setLed(ledState === "on" ? true : ledState === "off" ? false : null);
           setRunning(!!data?.state?.running);
           setLastSeen(data?.lastSeen ?? null);
     
-          // avaa SSE
           esRef.current?.close();
           const es = new EventSource(`${BASE_URL}/events/${id}`);
           es.addEventListener("message", (ev: any) => {
@@ -101,11 +106,9 @@ export default function CustomerScreen({ navigation }: Props) {
     };
 
       // (Valinnainen) QR-skannauksen “paikka”; lisää oikea lukija halutessasi
-    const fakeScan = () => {
-        // Tähän voi liittää esim. react-native-vision-camera -pohjaisen lukijan myöhemmin.
-        // Nyt vain demo: täytä kenttä testikoodilla.
-        setCustomerCode("dev-001");
-    };
+      const fakeScan = () => {
+        setCustomerCode("DEV-XYZ-123");
+      };
 
     return (
         <ScrollView contentContainerStyle={styles.scroll}>
@@ -126,7 +129,7 @@ export default function CustomerScreen({ navigation }: Props) {
             />
             <View style={styles.btnRow}>
               <View style={styles.btnWrap}>
-                <Button title="Yhdistä" onPress={connect} disabled={loading || !customerCode.trim()} />
+                <Button title="Yhdistä" onPress={() => { void connect(customerCode); }} disabled={loading || !customerCode.trim()} />
               </View>
               <View style={styles.btnWrap}>
                 <Button title="Skannaa QR" onPress={fakeScan} />
