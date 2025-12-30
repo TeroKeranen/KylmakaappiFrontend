@@ -30,6 +30,10 @@ export async function apiPost(path: string, body: object) {
 export async function motorRun(deviceId: string, ms = 5000, dir: "fwd" | "rev" = "fwd") {
     return apiPost("/motor", { deviceId, ms, dir });
   }
+
+  export async function motorPay(deviceId: string, dir: "fwd" | "rev" = "fwd") {
+    return apiPost("/motor/pay", { deviceId, dir });
+  }
   
   export { BASE_URL };
 

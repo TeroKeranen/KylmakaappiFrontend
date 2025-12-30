@@ -3,7 +3,7 @@ import { View, Text, Button, ActivityIndicator, StyleSheet, Platform, ScrollView
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import EventSource from "react-native-event-source";
 import { RootStackParamList } from "../navigation/AppNavigator";
-import { apiGet, apiPost, motorRun, BASE_URL } from "../api/client";
+import { apiGet, apiPost, motorRun,motorPay, BASE_URL } from "../api/client";
 import { sendWifiCredentials, isProvisioningAvailable } from "../ble/provision";
 import { requestBlePermissions } from "../utils/blePermissions";
 
@@ -129,10 +129,21 @@ export default function HomeScreen({ navigation }: Props) {
     }
   };
 
+  // 5 sec pyöräytys
+  // const payAndRun = async () => {
+  //   try {
+  //     await motorRun(deviceId, 5000, "fwd"); // 5s
+  //     setMsg("Moottori 5s komento lähetetty");
+  //     setErr("");
+  //   } catch (e: any) {
+  //     setErr(String(e?.message || e));
+  //   }
+  // };
+
   const payAndRun = async () => {
     try {
-      await motorRun(deviceId, 5000, "fwd"); // 5s
-      setMsg("Moottori 5s komento lähetetty");
+      await motorPay(deviceId, "fwd"); // aja kunnes rajakytkin, sitten 20 s cooldown
+      setMsg("Maksu ok. Moottori käynnistyy…");
       setErr("");
     } catch (e: any) {
       setErr(String(e?.message || e));

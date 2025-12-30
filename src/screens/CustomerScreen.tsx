@@ -1,12 +1,17 @@
 import React, {useState, useEffect, useRef} from "react";
 import { View, Text, Button, ActivityIndicator, StyleSheet, ScrollView, TextInput, Platform } from "react-native";
 import EventSource from "react-native-event-source";
-import { apiGet, apiPost, BASE_URL } from "../api/client";
+import { apiGet, apiPost, BASE_URL, motorPay } from "../api/client";
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from "../navigation/AppNavigator";
 
 
-/** (Valinnainen) jos backendissä on resolveri asiakaskoodi -> deviceId */
+/**
+ * resolveDeviceId:
+ * Asiakas näppäilee tai skannaa KÄYTTÄJÄKOODIN (esim. DEV-001).
+ * Backendista voidaan kysyä, mihin laitteeseen (deviceId) tämä koodi kuuluu.
+ * Jos backend ei tunne koodia, käytetään koodia sellaisenaan deviceId:nä.
+ */
 async function resolveDeviceId(customerCode: string): Promise<string> {
     try {
       const data = await apiGet(`/resolve/${encodeURIComponent(customerCode)}`);
@@ -20,6 +25,8 @@ async function resolveDeviceId(customerCode: string): Promise<string> {
   type Props = NativeStackScreenProps<RootStackParamList, 'Customer'>;
 
 export default function CustomerScreen({ navigation, route }: Props) {
+
+  
 
     const [customerCode, setCustomerCode] = useState("");
     const [deviceId, setDeviceId] = useState<string | null>(null);
@@ -35,7 +42,12 @@ export default function CustomerScreen({ navigation, route }: Props) {
     const esRef = useRef<EventSource | null>(null);
 
 
-
+        /**
+         * Kun tullaan tälle ruudulle deeplinkillä (kylmakaappi://device?code=DEV-001),
+         * koodi saapuu route.params.code:na. Silloin:
+         *  - asetetaan se tekstikenttään näkyviin
+         *  - ja heti yritetään yhdistää (connect(code))
+         */
       useEffect(() => {
         const code = route?.params?.code;
         if (typeof code === "string" && code.trim()) {
@@ -47,16 +59,26 @@ export default function CustomerScreen({ navigation, route }: Props) {
       // HUOM: riippuvuutena vain route.params.code
       }, [route?.params?.code]);
 
+        /**
+       * connect:
+       * 1) Varmista että meillä on koodi (näppäilty tai parametreista)
+       * 2) Jos backendissä on “resolveri”, muunnetaan koodi deviceId:ksi
+       * 3) Haetaan laitteelta viimeisin tila KERRAN (/state)
+       * 4) Avataan EventSource (SSE) -live-yhteys, joka puskee päivityksiä sitä mukaa kun laite niistä ilmoittaa
+       */
 
       const connect = async (initialCode?: string) => {
         try {
           setLoading(true); setErr(""); setMsg("");
           const code = (initialCode ?? customerCode).trim();
           if (!code) { setErr("Syötä laitteen koodi tai skannaa QR."); return; }
-    
+
+          // Käännetään koodi deviceId:ksi (tai käytetään sellaisenaan)
           const id = await resolveDeviceId(code);
+          console.log("DEVICEid", id);
           setDeviceId(id);
-    
+          
+          // Haetaan viimeisin tila heti (näytölle näkymään)
           const data = await apiGet(`/state/${id}`);
           const ledState = data?.state?.led;
           setLed(ledState === "on" ? true : ledState === "off" ? false : null);
@@ -64,7 +86,12 @@ export default function CustomerScreen({ navigation, route }: Props) {
           setLastSeen(data?.lastSeen ?? null);
     
           esRef.current?.close();
+
+          // Avataan uusi EventSource (SSE): tämä pitää “putken” auki palvelimelle,
+          // ja kun laitteelta tulee uutta tilaa, se jaetaan heti sovellukselle.
           const es = new EventSource(`${BASE_URL}/events/${id}`);
+
+          // Kun palvelin lähettää viestin (dataa), päivitämme käyttöliittymän
           es.addEventListener("message", (ev: any) => {
             try {
               const d = JSON.parse(ev.data);
@@ -88,22 +115,16 @@ export default function CustomerScreen({ navigation, route }: Props) {
         }
       };
 
-        // Maksa → (nyt simuloidaan) → LED päälle
-    const payAndTurnOn = async () => {
+      const payAndRun = async () => {
         try {
-        if (!deviceId) { setErr("Ei laiteyhteyttä. Syötä koodi ja paina Yhdistä."); return; }
-        setErr(""); setMsg("");
-
-        // 1) Simuloitu maksu backendille (voit korvata oikealla maksulla myöhemmin)
-        try { await apiPost("/pay", { deviceCode: customerCode.trim(), product: "led_on_5s", amount: 1.00 }); } catch {}
-
-        // 2) LED päälle automaattisesti
-        await apiPost("/led", { deviceId, state: "on" });
-        setMsg("Maksu ok. LED kytketty päälle.");
+          if (!deviceId) { setErr("Ei laiteyhteyttä. Syötä koodi ja Yhdistä."); return; }
+          await motorPay(deviceId, "fwd");   // aja kunnes rajakytkin, sitten cooldown (backend/firmis toteuttaa)
+          setMsg("Maksu ok. Moottori käynnistyy…");
+          setErr("");
         } catch (e: any) {
-        setErr(String(e?.message || e));
+          setErr(String(e?.message || e));
         }
-    };
+      };
 
       // (Valinnainen) QR-skannauksen “paikka”; lisää oikea lukija halutessasi
       const fakeScan = () => {
@@ -150,7 +171,7 @@ export default function CustomerScreen({ navigation, route }: Props) {
             <Text>Last seen: {lastSeen ? new Date(lastSeen).toLocaleTimeString() : "—"}</Text>
   
             <View style={styles.btnWrapWide}>
-              <Button title="Maksa (demo) → LED päälle" onPress={payAndTurnOn} disabled={!deviceId} />
+              <Button title="Maksa (demo) → LED päälle" onPress={payAndRun} disabled={!deviceId} />
             </View>
             </View>
         <Button title="Kotisivu" onPress={() => navigation.navigate("Home")} />
