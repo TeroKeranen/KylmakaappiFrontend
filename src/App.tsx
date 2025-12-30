@@ -1,6 +1,9 @@
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View } from 'react-native';
 import AppNavigator from './navigation/AppNavigator';
+import { Buffer } from 'buffer';
+// @ts-ignore
+global.Buffer = global.Buffer || Buffer;
 
 export default function App() {
   return <AppNavigator />

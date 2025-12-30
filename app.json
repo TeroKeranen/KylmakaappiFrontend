@@ -6,9 +6,13 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "scheme": "kylmakaappi",
     "newArchEnabled": true,
     "extra": {
-      "API_URL": "http://192.168.0.23:3000"
+      "API_URL": "http://192.168.0.23:3000",
+      "eas": {
+        "projectId": "541d5ff7-d487-4fe4-a323-44f6cee66d5a"
+      }
     },
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -23,10 +27,34 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "permissions": [
+        "BLUETOOTH",
+        "BLUETOOTH_ADMIN",
+        "BLUETOOTH_SCAN",
+        "BLUETOOTH_CONNECT",
+        "ACCESS_FINE_LOCATION",
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_CONNECT"
+      ],
+      "edgeToEdgeEnabled": true,
+      "package": "com.terokeranen.KaappiOhjelma"
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": true,
+          "modes": [
+            "peripheral",
+            "central"
+          ],
+          "bluetoothAlwaysPermission": "Allow $(PRODUCT_NAME) to connect to bluetooth devices"
+        }
+      ]
+    ]
   }
 }
