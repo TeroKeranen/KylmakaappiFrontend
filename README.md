@@ -7,7 +7,11 @@ The application communicates with embedded devices (ESP32) and a backend service
 The goal of the project is to create a **scalable IoT-based vending solution** that can be managed remotely via a mobile app.
 
 ---
-<img src="./assets/screenshots/1.jpg" width="250" />
+<img src="./assets/1.jpg" width="250" />
+
+<img src="./assets/eka.jpg" width="250" />
+
+
 
 ##  Project Purpose
 The application allows users to:
