@@ -111,3 +111,27 @@ This project is part of a larger system that combines **hardware, firmware, back
 ### Install dependencies
 ```bash
 npm install
+
+▶️ Run the App with Expo Go
+
+Start the Expo development server using the tunnel option:
+
+npx expo start --tunnel
+
+
+When the QR code appears:
+
+Open the Expo Go app on your mobile device
+
+Scan the QR code using the device camera
+
+The application will launch directly on the device
+
+ℹ️ The --tunnel option allows the app to run even if the mobile device and the development machine are not on the same local network.
+
+🧪 Notes
+
+A physical device is strongly recommended when testing BLE functionality
+
+BLE features may not work reliably on simulators or emulators
+
